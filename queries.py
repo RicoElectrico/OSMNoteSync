@@ -1,57 +1,47 @@
 '''
 Just a utility file to store some SQL queries for easy reference
 
-@author: Toby Murray
+@author: Michal Brzozowski, Toby Murray
 '''
-createChangesetTable = '''CREATE EXTENSION IF NOT EXISTS hstore;
-  CREATE TABLE osm_changeset (
-  id bigint,
+createNoteTable = '''CREATE TABLE note (
+  id bigint not null,
+  created_at timestamp without time zone not null,
+  closed_at timestamp without time zone,  
+  lat numeric(10,7) not null,
+  lon numeric(10,7) not null
+);
+CREATE TABLE note_comment (
+  note_id bigint not null,
+  action text not null,
+  time_stamp timestamp without time zone not null,
   user_id bigint,
-  created_at timestamp without time zone,
-  min_lat numeric(10,7),
-  max_lat numeric(10,7),
-  min_lon numeric(10,7),
-  max_lon numeric(10,7),
-  closed_at timestamp without time zone,
-  open boolean,
-  num_changes integer,
   user_name varchar(255),
-  tags hstore
+  txt text
 );
-CREATE TABLE osm_changeset_comment (
-  comment_changeset_id bigint not null,
-  comment_user_id bigint not null,
-  comment_user_name varchar(255) not null,
-  comment_date timestamp without time zone not null,
-  comment_text text not null
-);
-CREATE TABLE osm_changeset_state (
-  last_sequence bigint,
-  last_timestamp timestamp without time zone,
+CREATE TABLE note_replication_state (
   update_in_progress smallint
 );
+
+'''
+initStateTable = '''INSERT INTO note_replication_state VALUES (-1)''';
+
+dropIndexes = '''ALTER TABLE note DROP CONSTRAINT IF EXISTS note_pkey CASCADE;
+DROP INDEX IF EXISTS note_created_idx, note_closed_idx, note_comment_id_idx, note_geom_gist ;
 '''
 
-initStateTable = '''INSERT INTO osm_changeset_state VALUES (-1, null, 0)''';
+createConstraints = '''ALTER TABLE note ADD CONSTRAINT note_pkey PRIMARY KEY(id);'''
 
-dropIndexes = '''ALTER TABLE osm_changeset DROP CONSTRAINT IF EXISTS osm_changeset_pkey CASCADE;
-DROP INDEX IF EXISTS user_name_idx, user_id_idx, created_idx, tags_idx, changeset_geom_gist, comment_changeset_id_idx ;
-'''
-
-createConstraints = '''ALTER TABLE osm_changeset ADD CONSTRAINT osm_changeset_pkey PRIMARY KEY(id);'''
-
-createIndexes = '''CREATE INDEX user_name_idx ON osm_changeset(user_name);
-CREATE INDEX user_id_idx ON osm_changeset(user_id);
-CREATE INDEX created_idx ON osm_changeset(created_at);
-CREATE INDEX tags_idx ON osm_changeset USING GIN(tags);
-CREATE INDEX comment_changeset_id_idx ON osm_changeset_comment(comment_changeset_id);
+createIndexes = '''CREATE INDEX note_created_idx ON note(created_at);
+CREATE INDEX note_closed_idx ON note(closed_at);
+CREATE INDEX note_comment_id_idx ON note_comment(note_id);
+CREATE INDEX note_comment_timestamp_idx on note_comment(time_stamp)
 '''
 
 createGeometryColumn = '''
 CREATE EXTENSION IF NOT EXISTS postgis;
-SELECT AddGeometryColumn('osm_changeset','geom', 4326, 'POLYGON', 2);
+SELECT AddGeometryColumn('note','geom', 4326, 'POINT', 2);
 '''
 
 createGeomIndex = '''
-CREATE INDEX changeset_geom_gist ON osm_changeset USING GIST(geom);
+CREATE INDEX note_geom_gist ON note USING GIST(geom);
 '''
