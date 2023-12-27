@@ -11,7 +11,7 @@ log_msg()
 }
 
 LOCK_FILE="/tmp/osm_sync.lock"
-DB_NAME="note_test"
+DB_NAME="notes"
 
 if [ -e "$LOCK_FILE" ]; then
     log_msg "Script is already running. Exiting."
@@ -37,6 +37,9 @@ if [[ $? -eq 0 ]]; then
         log_msg "Running OSMNoteSync pruning"
         python osmnotesync.py -d ${DB_NAME} -g -D -f planet-notes-latest.osn.bz2
         log_msg "OSMNoteSync pruning finished"
+        # Dumps are daily, so on next invocation let's download maximum possible number of notes from API
+        # Just in the rare case usual small limit caused us to miss something.
+        psql -d ${DB_NAME} -c "update note_replication_state set update_in_progress = -1;"
     fi
 else
     log_msg "Error during dump download"

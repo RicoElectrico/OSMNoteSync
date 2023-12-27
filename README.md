@@ -121,6 +121,12 @@ Comments and other actions for all notes.
 Note that for actions other than `opened` and `commented`, `txt` can be null.
 Also `hidden` notes appear in the DB only if they have been `reopened` by the moderator.
 
+users:
+ID to user name mapping table.
+- `id` : Numerical user ID
+- `name` : User name
+Note that any `user_id` <-> `user_name` inconsistencies in `note_comment` due to user name changes are fixed at each replication.
+
 Example queries
 ------------
 TODO

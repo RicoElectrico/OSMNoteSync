@@ -34,6 +34,7 @@ class OSMNoteSync:
         cursor = connection.cursor()
         cursor.execute("TRUNCATE TABLE note_comment CASCADE;")
         cursor.execute("TRUNCATE TABLE note CASCADE;")
+        cursor.execute("TRUNCATE TABLE users CASCADE;")
         cursor.execute(queries.dropIndexes)
         connection.commit()
 
@@ -276,10 +277,15 @@ class OSMNoteSync:
         # at the end of this method to unlock the database or an error will forever leave it locked
         returnStatus = 0
         try:
+            cursor.execute("select max(time_stamp) from note_comment")
+            latestTimestampBeforeReplication = cursor.fetchone()[0]
+            print(f"latest timestamp before replication: {latestTimestampBeforeReplication}")
             print("commencing replication")
             self.parseFile(
                 connection, self.fetchReplicationFile(noteLimit), True
             )
+            print("updating user mapping")
+            cursor.execute(queries.updateUserMapping,(latestTimestampBeforeReplication,))
             connection.commit()
             print("finished with replication. Clearing status record")
         except Exception as e:
@@ -439,6 +445,8 @@ if __name__ == "__main__":
             cursor.execute(queries.createConstraints)
             print("creating indexes")
             cursor.execute(queries.createIndexes)
+            print("creating user mapping")
+            cursor.execute(queries.createUserMapping)
             if args.createGeometry:
                 cursor.execute(queries.createGeomIndex)
             conn.commit()
