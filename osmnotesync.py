@@ -71,17 +71,31 @@ class OSMNoteSync:
         psycopg2.extras.execute_batch(cursor, sql, comment_arr)
         cursor.close()
 
-    def deleteExisting(self, connection, id, numComments):
+    def deleteExisting(self, connection, id, comments):
+        def customKey(item):
+            return( item[0],
+                    item[1],
+                    item[2],
+                    item[3] if item[3] is not None else 0,
+                    item[4] if item[4] is not None else '',
+                    item[5] if item[5] is not None else '')
+        
         cursor = connection.cursor()
-
         cursor.execute(
-            """SELECT COUNT(*) FROM note_comment
+            """SELECT note_id, action, time_stamp, user_id, user_name, txt FROM note_comment
             WHERE note_id = %s""",
             (id,)
         )
-        numCommentsDB = cursor.fetchone()[0]
+        
+        commentsDB = cursor.fetchall()
 
-        if numCommentsDB < numComments:
+        if not commentsDB:
+            return True
+
+        commentsDB = sorted(commentsDB, key=customKey)
+        comments = sorted(comments, key=customKey)
+
+        if comments != commentsDB:
             cursor.execute(
                 """DELETE FROM note_comment
                 WHERE note_id = %s""",
@@ -93,7 +107,7 @@ class OSMNoteSync:
                 WHERE id = %s""",
                 (id,)
             )
-            connection.commit()
+            cursor.close()
             return True
         else:
             return False
@@ -144,21 +158,19 @@ class OSMNoteSync:
                 continue
 
             parsedCount += 1
-            currentNoteCommentsCount = 0
             if doReplication:
                 currentComments = []
                 for commentElement in elem.find("comments").iterfind("comment"):
                     comment = (
-                        elem.find("id").text,
+                        int(elem.find("id").text),
                         commentElement.find("action").text,
-                        commentElement.find("date").text,
-                        commentElement.find("uid").text if commentElement.find("uid") is not None else None,
+                        datetime.strptime(commentElement.find("date").text,"%Y-%m-%d %H:%M:%S %Z"),
+                        int(commentElement.find("uid").text) if commentElement.find("uid") is not None else None,
                         commentElement.find("user").text if commentElement.find("user") is not None else None,
                         commentElement.find("text").text
                     )
                     currentComments.append(comment)
-                    currentNoteCommentsCount += 1
-                needsInsert = self.deleteExisting(connection, elem.find("id").text, currentNoteCommentsCount)
+                needsInsert = self.deleteExisting(connection, int(elem.find("id").text), currentComments)
                 
                 if self.createGeometry:
                     note = (
