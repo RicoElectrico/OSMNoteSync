@@ -95,7 +95,7 @@ class OSMNoteSync:
         commentsDB = sorted(commentsDB, key=customKey)
         comments = sorted(comments, key=customKey)
 
-        if comments != commentsDB:
+        if comments != commentsDB or not comments:
             cursor.execute(
                 """DELETE FROM note_comment
                 WHERE note_id = %s""",
@@ -194,7 +194,7 @@ class OSMNoteSync:
                             elem.attrib["lat"],
                         )
                     )
-                if needsInsert:
+                if needsInsert and currentComments:
                     comments.extend(currentComments)
                     notes.append(note)
             else:        
@@ -263,7 +263,7 @@ class OSMNoteSync:
     def fetchReplicationFile(self, noteLimit):
         fileUrl = f"{REPL_URL}?limit={noteLimit}"
         print("opening replication file at " + fileUrl)
-        response = requests.get(fileUrl, stream=True)
+        response = requests.get(fileUrl, stream=True, timeout=120)
         response.raw.decode_content = True
         return response.raw
 
@@ -281,8 +281,8 @@ class OSMNoteSync:
         if dbStatus["update_in_progress"] == 1:
             print("concurrent update in progress. Bailing out!")
             return 1
-        # -1 means freshly after import. Download maximum allowed number of notes, to cover >24h between daily note dumps.
-        noteLimit = 10000 if dbStatus["update_in_progress"] == -1 else 200
+        # -1 means freshly after import. Download a large enough number of notes, to cover >24h between daily note dumps.
+        noteLimit = 5000 if dbStatus["update_in_progress"] == -1 else 200
         cursor.execute("update note_replication_state set update_in_progress = 1")
         connection.commit()
         # No matter what happens after this point, execution needs to reach the update statement

@@ -11,7 +11,7 @@ log_msg()
 }
 
 LOCK_FILE="/tmp/osm_sync.lock"
-DB_NAME="notes"
+DB_NAME="changesets"
 
 if [ -e "$LOCK_FILE" ]; then
     log_msg "Script is already running. Exiting."
@@ -44,5 +44,7 @@ if [[ $? -eq 0 ]]; then
 else
     log_msg "Error during dump download"
 fi
-
+log_msg "Updating note queue for random-note"
+psql -d changesets -f /home/haxor/src/random-note/update_queue_tables.sql
+log_msg "Update finished"
 rm -f "$LOCK_FILE"
